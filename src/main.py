@@ -25,9 +25,9 @@ q_table = np.zeros((state_space_size,action_space_size))
 print(q_table)
 
 #Number of episodes
-num_episodes = 1000
+num_episodes = 500
 #Max number of steps per episode
-max_steps_per_episode = 300
+max_steps_per_episode = 40
 
 learning_rate = 0.1
 discount_rate = 0.99
@@ -84,13 +84,13 @@ for episode in range(num_episodes): #Contains that happens in an episode
     rewards_all_episodes.append(rewards_current_episode)
 
 # Calculate and print the average reward per thousand episodes
-rewards_per_thousand_episodes = np.split(np.array(rewards_all_episodes),num_episodes/1000)
-count = 1000
+rewards_per_thousand_episodes = np.split(np.array(rewards_all_episodes),num_episodes/500)
+count = 500
 
 print("********Average reward per thousand episodes********\n")
 for r in rewards_per_thousand_episodes:
-    print(count, ": ", str(sum(r/1000)))
-    count += 1000#Print the updates Q-Table
+    print(count, ": ", str(sum(r/500)))
+    count += 500#Print the updates Q-Table
 print("\n\n*******Q-Table*******\n")
 print(q_table)
 """
