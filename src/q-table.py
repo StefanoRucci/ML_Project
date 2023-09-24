@@ -1,8 +1,6 @@
 import gym
-import time
 import numpy as np
 import random
-from IPython.display import clear_output
 
 # setup the environment
 env=gym.make("CliffWalking-v0",render_mode='human')
@@ -42,7 +40,7 @@ rewards_all_episodes = [] #List to contain all the rewards of all the episodes g
 for episode in range(num_episodes): #Contains that happens in an episode
     state = env.reset()
     state=state[0]
-    print("NEW EPISODE, NUMBER ", episode)
+    print("NEW EPISODE, NUMBER", episode)
     
     done = False #Tells whether episode is finished
     rewards_current_episode = 0 # start with reward 0 each episode
@@ -75,8 +73,8 @@ for episode in range(num_episodes): #Contains that happens in an episode
 
     # Exploration rate decay
     exploration_rate = min_exploration_rate + (max_exploration_rate - min_exploration_rate) * np.exp(-exploration_decay_rate*episode)
-    print("Expolarion rate:", exploration_rate)
-    print("Reward:", rewards_current_episode)
+    #print("Expolarion rate:", exploration_rate)
+    print("Episode reward:", rewards_current_episode)
 
     rewards_all_episodes.append(rewards_current_episode)
 
