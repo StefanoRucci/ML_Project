@@ -8,19 +8,17 @@ from IPython.display import clear_output
 env=gym.make("CliffWalking-v0",render_mode='human')
 env.reset()
 env.render()
-print('Initial state of the system')
 
 # observation space - states of the environment (they are 48) 
-print("Observation space", env.observation_space)
+print("Observation space:", env.observation_space)
 
 # actions: up->0, right->1, down->1, left->3.
-print("Action space", env.action_space)
+print("Action space:", env.action_space)
 
-# create the Q-Table
+#Creating a q-table and intialising all values as 0
 state_space_size = env.observation_space.n
 action_space_size = env.action_space.n
 
-#Creating a q-table and intialising all values as 0
 q_table = np.zeros((state_space_size,action_space_size))
 print(q_table)
 
@@ -41,16 +39,15 @@ exploration_decay_rate = 0.01
 rewards_all_episodes = [] #List to contain all the rewards of all the episodes given to the agent
 
 #Q-Learning Algorithm
-
 for episode in range(num_episodes): #Contains that happens in an episode
     state = env.reset()
     state=state[0]
-    print("NEW EPISODE NUMBER ", episode)
+    print("NEW EPISODE, NUMBER ", episode)
     
-    done = False #Tells us whether episode is finished
-    rewards_current_episode = 0 #We start with 0 each episode
+    done = False #Tells whether episode is finished
+    rewards_current_episode = 0 # start with reward 0 each episode
 
-    for step in range(max_steps_per_episode): #Contains that happens in a time step
+    for step in range(max_steps_per_episode): #moves for each episode
         
         #Exploration-exploitation trade off
         exploration_rate_threshold = random.uniform(0,1)
@@ -83,45 +80,16 @@ for episode in range(num_episodes): #Contains that happens in an episode
 
     rewards_all_episodes.append(rewards_current_episode)
 
-# Calculate and print the average reward per thousand episodes
+# Calculate and print the average reward for all episodes
 rewards_per_thousand_episodes = np.split(np.array(rewards_all_episodes),num_episodes/500)
 count = 500
 
-print("********Average reward per thousand episodes********\n")
+print("********Average reward per all episodes********\n")
 for r in rewards_per_thousand_episodes:
     print(count, ": ", str(sum(r/500)))
     count += 500#Print the updates Q-Table
 print("\n\n*******Q-Table*******\n")
 print(q_table)
-"""
-numberOfIterations=30
 
-reward=0
-
-for i in range(numberOfIterations):
-    randomAction= env.action_space.sample() #This is a randomaction
-    #print("Random action: ", randomAction)
-    returnValue=env.step(randomAction) #The return state of the random action
-    #print("ReturnValue: ", returnValue)
-    env.render()
-    print('Iteration: {} and action {}'.format(i+1,randomAction))
-    reward+=returnValue[1]
-    time.sleep(2)
-
-    # if fall in the climb
-    if returnValue[1]==-100:
-        print("The reward is: ",reward)
-        reward=0
-        env.reset()
-
-    # if goal
-    if returnValue[0] == 47:
-        print("The reward is: ",reward)
-        reward=0
-        env.reset()
-
-    print("##########################################")
-
-print("The reward is: ",reward)
-"""
+#close the environment
 env.close()
