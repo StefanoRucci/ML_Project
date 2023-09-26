@@ -35,7 +35,7 @@ target_update_frequency = 10
 num_actions = env.action_space.n
 q_network_main = QNetwork(num_actions)
 q_network_target = QNetwork(num_actions)
-q_network_target.set_weights(q_network_main.get_weights())
+#q_network_target.set_weights(q_network_main.get_weights())
 
 # Definizione della funzione di perdita e dell'ottimizzatore
 loss_fn = tf.keras.losses.MeanSquaredError()
@@ -46,9 +46,6 @@ replay_buffer = deque(maxlen=replay_memory_size)
 
 # Funzione per selezionare un'azione
 def select_action(state, epsilon):
-    #state = np.array(state, dtype=np.float32)
-
-    #print(np.expand_dims(state, axis=0))
     if np.random.rand() < epsilon:
         return env.action_space.sample()  # Esplorazione casuale
     else:
@@ -57,15 +54,17 @@ def select_action(state, epsilon):
 
 # Addestramento dell'agente
 num_episodes = 500
+max_steps_per_episode = 40
 epsilon = epsilon_initial
 
 for episode in range(num_episodes):
+    print(epsilon)
     state = env.reset()
     state = state[0]
     done = False
     total_reward = 0
 
-    while not done:
+    for step in range(max_steps_per_episode): #moves for each episode
         action = select_action(state, epsilon)
         returnValue=env.step(action) 
         next_state = returnValue[0]
@@ -96,15 +95,11 @@ for episode in range(num_episodes):
             grads = tape.gradient(loss, q_network_main.trainable_variables)
             optimizer.apply_gradients(zip(grads, q_network_main.trainable_variables))
 
-        if episode % target_update_frequency == 0:
-            # Reset delle reti neurali
-            q_network_main = QNetwork(num_actions)
-            q_network_target = QNetwork(num_actions)
+        if state == 47: #Checking if episode is over
+            break
 
-            q_network_target.set_weights(q_network_main.get_weights())
-
-    if episode % target_update_frequency == 0:
-        epsilon = max(epsilon * epsilon_decay, epsilon_min)
+    #if episode % target_update_frequency == 0:
+    epsilon = max(epsilon * epsilon_decay, epsilon_min)
 
     print(f"Episodio {episode + 1}: Ricompensa totale = {total_reward}")
 
