@@ -84,10 +84,6 @@ for episode in range(num_episodes):
             states, actions, rewards, next_states, dones = batch[:, 0], batch[:, 1], batch[:, 2], batch[:, 3], batch[:, 4]
 
             q_values_next = q_network_target.predict(np.array([next_states]))
-            print(rewards)
-            print(gamma)
-            print(np.max(q_values_next, axis=1))
-            print(1-dones)
             q_values_max = np.max(q_values_next, axis=1)  # Calcola il massimo per ciascun campione
             targets = rewards + gamma * q_values_max * (1 - dones)
 
