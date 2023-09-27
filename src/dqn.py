@@ -1,5 +1,7 @@
 import numpy as np
 import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense
 import gym
 import random
 from collections import deque
@@ -7,107 +9,106 @@ from collections import deque
 # Creazione dell'ambiente CliffWalking-v0
 env = gym.make('CliffWalking-v0', render_mode="human")
 
-# Definizione della rete neurale
-class QNetwork(tf.keras.Model):
-    def __init__(self, num_actions):
-        super(QNetwork, self).__init__()
-        self.dense1 = tf.keras.layers.Dense(64, activation='relu')
-        self.dense2 = tf.keras.layers.Dense(64, activation='relu')
-        self.output_layer = tf.keras.layers.Dense(num_actions, activation='linear')
+# past experience
+EXP_MAX_SIZE=10000 # Max batch size of past experience
+BATCH_SIZE=EXP_MAX_SIZE//10 # Training set size
+experience = deque([],EXP_MAX_SIZE) # Past experience arranged as a queue
 
-    def call(self, state):
-        x = self.dense1(state)
-        x = self.dense2(x)
-        q_values = self.output_layer(x)
-        return q_values
+EPS_MAX = 70 # Initial exploration probability
+EPS_MIN = 5 # Final exploration probability
+GAMMA = .9 # discount factor
+LR = 0.01 # learning rate
+c_reward = 0 # current cumulative reward
+checkpoint_path = './checkpoints/cp.ckpt' # file to record network configuration
 
-# Iperparametri
-learning_rate = 0.01
-gamma = 0.95
-epsilon_initial = 0.5
-epsilon_decay = 0.995
-epsilon_min = 0.01
-batch_size = 32
-replay_memory_size = 10000
-target_update_frequency = 10
+# Use a NN to Q-function Q(obs,a)
+# NN architecture
+model = Sequential()
+model.add(Dense(32, input_shape=(2,), activation='relu'))
+model.add(Dense(16, activation='relu'))
+model.add(Dense(1,activation='linear'))
+model.compile(optimizer='sgd', loss='mse')
 
-# Creazione della rete principale e della rete target
-num_actions = env.action_space.n
-q_network_main = QNetwork(num_actions)
-q_network_target = QNetwork(num_actions)
-#q_network_target.set_weights(q_network_main.get_weights())
+# initialize environment and get related information and observation
+# obs represents current state
+#state, info = env.reset(seed=42)
 
-# Definizione della funzione di perdita e dell'ottimizzatore
-loss_fn = tf.keras.losses.MeanSquaredError()
-optimizer = tf.keras.optimizers.legacy.Adam(learning_rate)
-
-# Creazione del replay buffer
-replay_buffer = deque(maxlen=replay_memory_size)
-
-# Funzione per selezionare un'azione
-def select_action(state, epsilon):
-    if np.random.rand() < epsilon:
-        return env.action_space.sample()  # Esplorazione casuale
-    else:
-        q_values = q_network_main.predict(np.array([[state]]))
-        return np.argmax(q_values[0])  # Azione massimale secondo Q
+episode = 1 # counting episodes to decrease epsilon
+epsilon = EPS_MAX # start with max exploration probability
 
 # Addestramento dell'agente
 num_episodes = 500
 max_steps_per_episode = 40
-epsilon = epsilon_initial
 
-for episode in range(num_episodes):
-    print(epsilon)
-    state = env.reset()
-    state = state[0]
+for i in range(num_episodes):
+    #print(epsilon)
+    state, info = env.reset()
+    #print(state)
     done = False
     total_reward = 0
 
-    for step in range(max_steps_per_episode): #moves for each episode
-        action = select_action(state, epsilon)
+    for step in range(max_steps_per_episode):
+
+        action = env.action_space.sample() # pick random action (default)
+        rv = random.randint(1,100) # pick random int to decide exploration or exploitation
+
+        if rv >= epsilon:
+            candidates = {}
+            for a in range(4):
+                candidates[a] = model.predict_on_batch(tf.constant([[state, a]]))[0][0]
+            action=min(candidates, key=candidates.get)
+
         returnValue=env.step(action) 
         next_state = returnValue[0]
         reward = returnValue[1]
         done = returnValue[2]
         info = returnValue[3]
-        #next_state, reward, done, _ = env.step(action)
 
-        replay_buffer.append((state, action, reward, next_state, done))
+        c_reward += reward # cumulate rewaed (for evaluation only)
 
-        state = next_state
-        total_reward += reward
+        # Find next best action max_a q(s',a), observe s' is obs_next
+        candidates_next = {}
+        for a in range(4):
+            candidates_next[a]= model.predict_on_batch(tf.constant([[next_state, a]]))[0][0]
+        act_next=max(candidates_next, key=candidates_next.get)
 
-        if len(replay_buffer) >= batch_size:
-            batch = np.array(random.sample(replay_buffer, batch_size))
-            states, actions, rewards, next_states, dones = batch[:, 0], batch[:, 1], batch[:, 2], batch[:, 3], batch[:, 4]
+        #Compute corresponding (predicted) reward
+        reward_next = candidates_next[act_next]
 
-            q_values_next = q_network_target.predict(np.array([next_states]))
-            q_values_max = np.max(q_values_next, axis=1)  # Calcola il massimo per ciascun campione
-            targets = rewards + gamma * q_values_max * (1 - dones)
+        # Record experience (will be used to train network)
+        if len(experience)>=EXP_MAX_SIZE:
+            experience.popleft() # dequeue oldest item
 
-            with tf.GradientTape() as tape:
-                #print(states)
-                q_values = q_network_main(np.expand_dims(states, axis=1))
-                selected_action_values = tf.reduce_sum(q_values * tf.one_hot(actions, num_actions), axis=1)
-                loss = loss_fn(targets, selected_action_values)
+        experience.append([*[state, action], reward + GAMMA*reward_next]) # queue new experience item
 
-            grads = tape.gradient(loss, q_network_main.trainable_variables)
-            optimizer.apply_gradients(zip(grads, q_network_main.trainable_variables))
-
-        if state == 47: #Checking if episode is over
+        if state == 47:
             break
 
-    #if episode % target_update_frequency == 0:
-    epsilon = max(epsilon * epsilon_decay, epsilon_min)
+        state = next_state # update current state
 
-    print(f"Episodio {episode + 1}: Ricompensa totale = {total_reward}")
+    if len(experience) >= BATCH_SIZE and episode % 10 == 0:
+        # sample batch
+        batch = random.sample(experience, BATCH_SIZE)
+        print(batch)
+        #prepare data
+        dataset = np.array(batch)
+        print(dataset)
+        X = dataset[:,:2]
+        Y = dataset[:,2]
+        print("len(X)=",len(X))
+        #train network
+        model.fit(tf.constant(X),tf.constant(Y), validation_split=0.2) # fit model
+        model.save_weights(checkpoint_path) # save updated weights
+        epsilon -= epsilon/100 # reduce epsilon by 1/100
+        if epsilon<=EPS_MIN:
+            epsilon = EPS_MIN
 
-# Utilizzo del modello addestrato
-state = env.reset()
-done = False
-while not done:
-    action = np.argmax(q_network_main.predict(np.expand_dims(state, axis=0)))
-    next_state, _, done, _ = env.step(action)
-    state = next_state
+    # print debug information
+    print("----------------------------------episode ", episode)
+    print("return=",c_reward)
+    print("epsilon=", epsilon)
+    print("experience size =", len(experience))
+    episode+=1
+    state, info = env.reset()
+    c_reward = 0
 env.close()
