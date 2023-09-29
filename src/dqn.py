@@ -14,8 +14,9 @@ EXP_MAX_SIZE=10000 # Max batch size of past experience
 BATCH_SIZE=EXP_MAX_SIZE//10 # Training set size
 experience = deque([],EXP_MAX_SIZE) # Past experience arranged as a queue
 
-EPS_MAX = 70 # Initial exploration probability
-EPS_MIN = 5 # Final exploration probability
+EPS_MAX = 1 # Initial exploration probability
+EPS_MIN = 0.01 # Final exploration probability
+exploration_decay_rate = 0.01
 GAMMA = .9 # discount factor
 LR = 0.01 # learning rate
 c_reward = 0 # current cumulative reward
@@ -38,7 +39,7 @@ epsilon = EPS_MAX # start with max exploration probability
 
 # Addestramento dell'agente
 num_episodes = 500
-max_steps_per_episode = 40
+max_steps_per_episode = 50
 
 for i in range(num_episodes):
     #print(epsilon)
@@ -50,13 +51,15 @@ for i in range(num_episodes):
     for step in range(max_steps_per_episode):
 
         action = env.action_space.sample() # pick random action (default)
-        rv = random.randint(1,100) # pick random int to decide exploration or exploitation
+        #rv = random.randint(1,100) # pick random int to decide exploration or exploitation
+        rv = random.uniform(0, 1) # pick random int to decide exploration or exploitation
+
 
         if rv >= epsilon:
             candidates = {}
             for a in range(4):
                 candidates[a] = model.predict_on_batch(tf.constant([[state, a]]))[0][0]
-            action=min(candidates, key=candidates.get)
+            action=max(candidates, key=candidates.get)
 
         returnValue=env.step(action) 
         next_state = returnValue[0]
@@ -89,19 +92,20 @@ for i in range(num_episodes):
     if len(experience) >= BATCH_SIZE and episode % 10 == 0:
         # sample batch
         batch = random.sample(experience, BATCH_SIZE)
-        print(batch)
+        #print(batch)
         #prepare data
         dataset = np.array(batch)
-        print(dataset)
+        #print(dataset)
         X = dataset[:,:2]
         Y = dataset[:,2]
         print("len(X)=",len(X))
         #train network
         model.fit(tf.constant(X),tf.constant(Y), validation_split=0.2) # fit model
         model.save_weights(checkpoint_path) # save updated weights
-        epsilon -= epsilon/100 # reduce epsilon by 1/100
-        if epsilon<=EPS_MIN:
-            epsilon = EPS_MIN
+    #epsilon = epsilon/100 # reduce epsilon by 1/100
+    epsilon = EPS_MIN + (EPS_MAX - EPS_MIN) * np.exp(-exploration_decay_rate*episode)
+    if epsilon<=EPS_MIN:
+        epsilon = EPS_MIN
 
     # print debug information
     print("----------------------------------episode ", episode)
